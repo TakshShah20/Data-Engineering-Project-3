@@ -1,0 +1,980 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "synapse-taksh"
+		},
+		"synapse-taksh-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'synapse-taksh-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:synapse-taksh.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"KeyVault_LS_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://tskeyvault001.vault.azure.net/"
+		},
+		"SQL_DB_LS_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "servertaksh.database.windows.net"
+		},
+		"SQL_DB_LS_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "databasetaksh"
+		},
+		"SQL_DB_LS_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "Taksh417"
+		},
+		"synapse-taksh-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adlsgen2ts.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/project-3')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "WithPrimaryKey",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "WithPrimaryKey",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Customers": {},
+									"Products": {},
+									"Stores": {},
+									"Agents": {},
+									"sinkCustomers": {},
+									"sinkProducts": {},
+									"sinkStores": {},
+									"sinkAgents": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "WithForeignKey",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "WithPrimaryKey",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "WithForeignKey",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"OnlineTransactions": {},
+									"InStoreTransactions": {},
+									"CustomerServiceInteractions": {},
+									"LoyaltyAccounts": {},
+									"LoyaltyTransactions": {},
+									"sinkOnlineTransactions": {},
+									"sinkInStoreTransactions": {},
+									"sinkCustomerServiceInteractions": {},
+									"sinkLoyaltyAccounts": {},
+									"sinkLoyaltyTransactions": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-04-30T00:02:21Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/dataflows/WithPrimaryKey')]",
+				"[concat(variables('workspaceId'), '/dataflows/WithForeignKey')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/KeyVault_LS')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('KeyVault_LS_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL_DB_LS')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('SQL_DB_LS_properties_typeProperties_server')]",
+					"database": "[parameters('SQL_DB_LS_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('SQL_DB_LS_properties_typeProperties_userName')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "KeyVault_LS",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "azuresql-pwd"
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]",
+				"[concat(variables('workspaceId'), '/linkedServices/KeyVault_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/synapse-taksh-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('synapse-taksh-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/synapse-taksh-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('synapse-taksh-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WithForeignKey')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "OnlineTransactions"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "InStoreTransactions"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "CustomerServiceInteractions"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "LoyaltyAccounts"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "LoyaltyTransactions"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkOnlineTransactions",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkInStoreTransactions",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkCustomerServiceInteractions",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkLoyaltyAccounts",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkLoyaltyTransactions",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "removenulls1"
+						},
+						{
+							"name": "removeduplicates1"
+						},
+						{
+							"name": "alterRow1"
+						},
+						{
+							"name": "removenulls2"
+						},
+						{
+							"name": "removeduplicates2"
+						},
+						{
+							"name": "alterRow2"
+						},
+						{
+							"name": "removenulls3"
+						},
+						{
+							"name": "removeduplicates3"
+						},
+						{
+							"name": "alterRow3"
+						},
+						{
+							"name": "removenulls4"
+						},
+						{
+							"name": "removeduplicates4"
+						},
+						{
+							"name": "alterRow4"
+						},
+						{
+							"name": "removenulls5"
+						},
+						{
+							"name": "removeduplicates5"
+						},
+						{
+							"name": "alterRow5"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          OrderID as short,",
+						"          CustomerID as short,",
+						"          ProductID as short,",
+						"          DateTime as timestamp,",
+						"          PaymentMethod as string,",
+						"          Amount as double,",
+						"          Status as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'OnlineTransactions.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> OnlineTransactions",
+						"source(output(",
+						"          TransactionID as short,",
+						"          CustomerID as short,",
+						"          StoreID as short,",
+						"          DateTime as timestamp,",
+						"          Amount as double,",
+						"          PaymentMethod as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'InStoreTransactions.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> InStoreTransactions",
+						"source(output(",
+						"          InteractionID as short,",
+						"          CustomerID as short,",
+						"          DateTime as timestamp,",
+						"          AgentID as short,",
+						"          IssueType as string,",
+						"          ResolutionStatus as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'CustomerServiceInteractions.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> CustomerServiceInteractions",
+						"source(output(",
+						"          LoyaltyID as short,",
+						"          CustomerID as short,",
+						"          PointsEarned as short,",
+						"          TierLevel as string,",
+						"          JoinDate as date",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'LoyaltyAccounts.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> LoyaltyAccounts",
+						"source(output(",
+						"          LoyaltyID as short,",
+						"          DateTime as timestamp,",
+						"          PointsChange as short,",
+						"          Reason as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'LoyaltyTransactions.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> LoyaltyTransactions",
+						"OnlineTransactions filter(!isNull(OrderID)) ~> removenulls1",
+						"removenulls1 aggregate(groupBy(OrderID),",
+						"     CustomerID = first(CustomerID),",
+						"          ProductID = first(ProductID),",
+						"          DateTime = first(DateTime),",
+						"          PaymentMethod = first(PaymentMethod),",
+						"          Amount = first(Amount),",
+						"          Status = first(Status)) ~> removeduplicates1",
+						"removeduplicates1 alterRow(upsertIf(1==1)) ~> alterRow1",
+						"InStoreTransactions filter(!isNull(TransactionID)) ~> removenulls2",
+						"removenulls2 aggregate(groupBy(TransactionID),",
+						"     CustomerID = first(CustomerID),",
+						"          StoreID = first(StoreID),",
+						"          DateTime = first(DateTime),",
+						"          Amount = first(Amount),",
+						"          PaymentMethod = first(PaymentMethod)) ~> removeduplicates2",
+						"removeduplicates2 alterRow(upsertIf(1==1)) ~> alterRow2",
+						"CustomerServiceInteractions filter(!isNull(InteractionID)) ~> removenulls3",
+						"removenulls3 aggregate(groupBy(InteractionID),",
+						"     CustomerID = first(CustomerID),",
+						"          AgentID = first(AgentID),",
+						"          DateTime = first(DateTime),",
+						"          IssueType = first(IssueType),",
+						"          ResolutionStatus = first(ResolutionStatus)) ~> removeduplicates3",
+						"removeduplicates3 alterRow(upsertIf(1==1)) ~> alterRow3",
+						"LoyaltyAccounts filter(!isNull(LoyaltyID)) ~> removenulls4",
+						"removenulls4 aggregate(groupBy(LoyaltyID),",
+						"     CustomerID = first(CustomerID),",
+						"          PointsEarned = first(PointsEarned),",
+						"          TierLevel = first(TierLevel),",
+						"          JoinDate = first(JoinDate)) ~> removeduplicates4",
+						"removeduplicates4 alterRow(upsertIf(1==1)) ~> alterRow4",
+						"LoyaltyTransactions filter(!isNull(LoyaltyID)) ~> removenulls5",
+						"removenulls5 aggregate(groupBy(LoyaltyID),",
+						"     DateTime = first(DateTime),",
+						"          PointsChange = first(PointsChange),",
+						"          Reason = first(Reason)) ~> removeduplicates5",
+						"removeduplicates5 alterRow(upsertIf(1==1)) ~> alterRow5",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'OnlineTransactions',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['OrderID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          OrderID,",
+						"          CustomerID,",
+						"          ProductID,",
+						"          DateTime,",
+						"          PaymentMethod,",
+						"          Amount,",
+						"          Status",
+						"     )) ~> sinkOnlineTransactions",
+						"alterRow2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'InStoreTransactions',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['TransactionID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          TransactionID,",
+						"          CustomerID,",
+						"          StoreID,",
+						"          DateTime,",
+						"          Amount,",
+						"          PaymentMethod",
+						"     )) ~> sinkInStoreTransactions",
+						"alterRow3 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'CustomerServiceInteractions',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['InteractionID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          InteractionID,",
+						"          CustomerID,",
+						"          AgentID,",
+						"          DateTime,",
+						"          IssueType,",
+						"          ResolutionStatus",
+						"     )) ~> sinkCustomerServiceInteractions",
+						"alterRow4 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'LoyaltyAccounts',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['LoyaltyID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          LoyaltyID,",
+						"          CustomerID,",
+						"          PointsEarned,",
+						"          TierLevel,",
+						"          JoinDate",
+						"     )) ~> sinkLoyaltyAccounts",
+						"alterRow5 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'LoyaltyTransactions',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['LoyaltyID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          LoyaltyID,",
+						"          DateTime,",
+						"          PointsChange,",
+						"          Reason",
+						"     )) ~> sinkLoyaltyTransactions"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/synapse-taksh-WorkspaceDefaultStorage')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SQL_DB_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WithPrimaryKey')]",
+			"type": "Microsoft.Synapse/workspaces/dataflows",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Customers"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Products"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Stores"
+						},
+						{
+							"linkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							},
+							"name": "Agents"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkCustomers",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkProducts",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkStores",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"linkedService": {
+								"referenceName": "SQL_DB_LS",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkAgents",
+							"rejectedDataLinkedService": {
+								"referenceName": "synapse-taksh-WorkspaceDefaultStorage",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "removenulls1"
+						},
+						{
+							"name": "removeduplicates1"
+						},
+						{
+							"name": "alterRow1"
+						},
+						{
+							"name": "removenulls2"
+						},
+						{
+							"name": "removeduplicates2"
+						},
+						{
+							"name": "alterRow2"
+						},
+						{
+							"name": "removenulls3"
+						},
+						{
+							"name": "removeduplicates3"
+						},
+						{
+							"name": "alterRow3"
+						},
+						{
+							"name": "removenulls4"
+						},
+						{
+							"name": "aggregate1"
+						},
+						{
+							"name": "alterRow4"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          CustomerID as short,",
+						"          Name as string,",
+						"          Email as string,",
+						"          Address as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'Customers.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> Customers",
+						"source(output(",
+						"          ProductID as short,",
+						"          Name as string,",
+						"          Category as string,",
+						"          Price as double",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'Products.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> Products",
+						"source(output(",
+						"          StoreID as short,",
+						"          Location as string,",
+						"          Manager as string,",
+						"          OpenHours as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'Stores.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> Stores",
+						"source(output(",
+						"          AgentID as short,",
+						"          Name as string,",
+						"          Department as string,",
+						"          Shift as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'project-3',",
+						"     folderPath: 'bronze layer',",
+						"     fileName: 'Agents.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> Agents",
+						"Customers filter(!isNull(CustomerID)) ~> removenulls1",
+						"removenulls1 aggregate(groupBy(CustomerID),",
+						"     Name = first(Name),",
+						"          Email = first(Email),",
+						"          Address = first(Address)) ~> removeduplicates1",
+						"removeduplicates1 alterRow(upsertIf(1==1)) ~> alterRow1",
+						"Products filter(!isNull(ProductID)) ~> removenulls2",
+						"removenulls2 aggregate(groupBy(ProductID),",
+						"     Name = first(Name),",
+						"          Category = first(Category),",
+						"          Price = first(Price)) ~> removeduplicates2",
+						"removeduplicates2 alterRow(upsertIf(1==1)) ~> alterRow2",
+						"Stores filter(!isNull(StoreID)) ~> removenulls3",
+						"removenulls3 aggregate(groupBy(StoreID),",
+						"     Location = first(Location),",
+						"          Manager = first(Manager),",
+						"          OpenHours = first(OpenHours)) ~> removeduplicates3",
+						"removeduplicates3 alterRow(upsertIf(1==1)) ~> alterRow3",
+						"Agents filter(!isNull(AgentID)) ~> removenulls4",
+						"removenulls4 aggregate(groupBy(AgentID),",
+						"     Name = first(Name),",
+						"          Department = first(Department),",
+						"          Shift = first(Shift)) ~> aggregate1",
+						"aggregate1 alterRow(upsertIf(1==1)) ~> alterRow4",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          CustomerID as integer,",
+						"          Name as string,",
+						"          Email as string,",
+						"          Address as string",
+						"     ),",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'Customers',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['CustomerID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          CustomerID,",
+						"          Name,",
+						"          Email,",
+						"          Address",
+						"     )) ~> sinkCustomers",
+						"alterRow2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'Products',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['ProductID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          ProductID,",
+						"          Name,",
+						"          Category,",
+						"          Price",
+						"     )) ~> sinkProducts",
+						"alterRow3 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'Stores',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['StoreID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          StoreID,",
+						"          Location,",
+						"          Manager,",
+						"          OpenHours",
+						"     )) ~> sinkStores",
+						"alterRow4 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table',",
+						"     store: 'sqlserver',",
+						"     schemaName: 'dbo',",
+						"     tableName: 'Agents',",
+						"     insertable: false,",
+						"     updateable: false,",
+						"     deletable: false,",
+						"     upsertable: true,",
+						"     keys:['AgentID'],",
+						"     stagingSchemaName: '',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          AgentID,",
+						"          Name,",
+						"          Department,",
+						"          Shift",
+						"     )) ~> sinkAgents"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/synapse-taksh-WorkspaceDefaultStorage')]",
+				"[concat(variables('workspaceId'), '/linkedServices/SQL_DB_LS')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		}
+	]
+}
