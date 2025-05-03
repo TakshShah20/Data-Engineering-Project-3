@@ -1,0 +1,28 @@
+{
+	"name": "SQL_DB_LS",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "servertaksh.database.windows.net",
+			"database": "databasetaksh",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "Taksh417",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "KeyVault_LS",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "azuresql-pwd"
+			}
+		},
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
